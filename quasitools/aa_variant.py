@@ -23,7 +23,9 @@ from Bio.Seq import Seq
 from quasitools.aa_census import CONFIDENT, UNCONFIDENT
 from quasitools.variant import Variant, VariantCollection
 from numpy import array as np_array
-
+from PyAAVF.model import AAVF
+from PyAAVF.parser import Reader
+from PyAAVF.parser import Writer
 
 class AAVariant(Variant):
 
