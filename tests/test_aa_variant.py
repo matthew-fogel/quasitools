@@ -1,7 +1,7 @@
 """
-Copyright Government of Canada 2017
+Copyright Government of Canada 2017 - 2018
 
-Written by: Cole Peters, Eric Chubaty, National Microbiology Laboratory, Public Health Agency of Canada
+Written by: Cole Peters, Eric Chubaty, and Matthew Fogel, National Microbiology Laboratory, Public Health Agency of Canada
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 this work except in compliance with the License. You may obtain a copy of the
@@ -23,15 +23,20 @@ from quasitools.aa_census import AACensus, CONFIDENT
 from quasitools.aa_variant import AAVariantCollection
 from quasitools.nt_variant import NTVariantCollection
 from quasitools.mutations import MutationDB
+from PyAAVF.parser import Writer
 from quasitools.parsers.mapped_read_parser import parse_mapped_reads_from_bam
 from quasitools.parsers.genes_file_parser import parse_genes_file
 from quasitools.parsers.reference_parser import parse_references_from_fasta
 from quasitools.parsers.nt_variant_file_parser \
     import parse_nt_variants_from_vcf
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 TEST_PATH = os.path.dirname(os.path.abspath(__file__))
 VARIANTS_FILE = TEST_PATH + "/data/output/nt_variants.vcf"
-VALID_AA_VARIANTS_HMCF = TEST_PATH + "/data/output/mutation_report.hmcf"
+VALID_AA_VARIANTS_AAVF = TEST_PATH + "/data/output/mutation_report.aavf"
 VALID_DR_MUTATIONS_CSV = TEST_PATH + "/data/output/dr_report.csv"
 
 
@@ -87,7 +92,7 @@ class TestAAVariant:
             dr_mutations = [x.replace("\n", "") for x in input.readlines()]
 
             # Apply filter to the collection
-            self.aa_collection.filter('mf0.01', 'freq<0.01', True)
+            self.aa_collection.filter('af0.01', 'alt_freq<0.01', True)
 
             # Get the report and compare outputs
             collection = self.aa_collection.report_dr_mutations(
@@ -99,20 +104,31 @@ class TestAAVariant:
     def test_aa_variants(self):
 
         # Read from file and make sure there are no empty lines
-        with open(VALID_AA_VARIANTS_HMCF, "r") as input:
+        with open(VALID_AA_VARIANTS_AAVF, "r") as input:
             valid_variants = input.read()
 
         # Sort and filter so comparison order will be fine afterwards
         valid_variants_lines = sorted(filter(None, valid_variants.split("\n")))
 
         # Apply the filter to the collection
-        self.aa_collection.filter('mf0.01', 'freq<0.01', True)
+        self.aa_collection.filter('af0.01', 'alt_freq<0.01', True)
 
         # Do the thing with the mutation_db
         self.aa_collection.apply_mutation_db(self.mutation_db)
 
-        aa_variants = self.aa_collection.to_hmcf_file(CONFIDENT)
+        # Grab the AAVF format
+        template = self.aa_collection.to_aavf(CONFIDENT)
 
+        # Write to string using Writer object
+        strIO=StringIO()
+
+        writer = Writer(strIO, template)
+        for record in template:
+            writer.write_record(record, 4)
+        aa_variants = strIO.getvalue()
+        # Returns string of report without nl character at the end
+        aa_variants = aa_variants[:-1]
+        writer.close()
         # Make sure it's sorted and has no empty strings
         aa_variants_lines = sorted(aa_variants.split("\n"))
 
@@ -135,7 +151,7 @@ class TestAAVariant:
         # Same as previous test but for no mutation db
 
         # Read from file and make sure there are no empty lines
-        with open(VALID_AA_VARIANTS_HMCF, "r") as input:
+        with open(VALID_AA_VARIANTS_AAVF, "r") as input:
             valid_variants = input.read()
 
         valid_variants_lines = list(filter(None, valid_variants.split("\n")))
@@ -155,10 +171,21 @@ class TestAAVariant:
         valid_variants_lines.sort()
 
         # Apply the filter to the collection
-        self.aa_collection.filter('mf0.01', 'freq<0.01', True)
+        self.aa_collection.filter('af0.01', 'alt_freq<0.01', True)
 
-        # Grab the hmcf format
-        aa_variants = self.aa_collection.to_hmcf_file(CONFIDENT)
+        # Grab the AAVF format
+        template = self.aa_collection.to_aavf(CONFIDENT)
+
+        # Write to string using Writer object
+        strIO=StringIO()
+
+        writer = Writer(strIO, template)
+        for record in template:
+            writer.write_record(record, 4)
+        aa_variants = strIO.getvalue()
+        # Returns string of report without nl character at the end
+        aa_variants = aa_variants[:-1]
+        writer.close()
 
         # Make sure it's sorted and has no empty strings
         aa_variants_lines = sorted(filter(None, aa_variants.split("\n")))

@@ -1,7 +1,7 @@
 """
-Copyright Government of Canada 2017
+Copyright Government of Canada 2017 - 2018
 
-Written by: Eric Chubaty, National Microbiology Laboratory,
+Written by: Eric Chubaty and Matthew Fogel, National Microbiology Laboratory,
             Public Health Agency of Canada
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
@@ -24,40 +24,9 @@ from quasitools.aa_census import CONFIDENT, UNCONFIDENT
 from quasitools.variant import Variant, VariantCollection
 from numpy import array as np_array
 from PyAAVF.model import AAVF
-from PyAAVF.parser import Reader
-from PyAAVF.parser import Writer
-
-class AAVariant(Variant):
-
-    def __init__(self, gene=".", freq=0,
-                 coverage=0, census_ind=0,
-                 info=dict(), **kwargs):
-        """Add additional fields to Variant for AAVariant"""
-        super(AAVariant, self).__init__(**kwargs)
-
-        self.info = info
-        self.gene = gene
-        self.freq = freq
-        self.coverage = coverage
-        self.census_ind = census_ind
-
-    def __info_to_str(self):
-        """Convert info dict to info string for hmcf entry."""
-        return "WC=%s;MC=%s;MCF=%s;CAT=%s;SRVL=%s" % (
-            self.info['WC'],
-            self.info['MC'],
-            self.info['MCF'],
-            self.info['CAT'],
-            self.info['SRVL']
-        )
-
-    def to_hmcf_entry(self):
-        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%0.4f\t%s\t%s\n" % (
-            self.chrom, self.gene, self.id,
-            self.ref, self.pos, self.alt,
-            self.filter, self.freq, self.coverage, self.__info_to_str()
-        )
-
+from PyAAVF.model import Record
+from PyAAVF.parser import Info
+from PyAAVF.parser import Filter
 
 class AAVariantCollection(VariantCollection):
 
@@ -77,7 +46,7 @@ class AAVariantCollection(VariantCollection):
 
         var_collect = cls(aa_census)
 
-        # Build up the Collection of AAVariants from many census
+        # Build up the Collection of AAVF Records from many census
         for census_ind, census in enumerate(aa_census):
 
             # For each gene in this census
@@ -138,71 +107,78 @@ class AAVariantCollection(VariantCollection):
                                     mcf += "%0.4f," % (float(freq_mcf) /
                                                        coverage)
 
-                                # Create AAVariant & slap it in the
+                                # Create AAVF Record & slap it in the
                                 # collection
-                                mutation = AAVariant(chrom=chrom,
-                                                     gene=gene_key,
-                                                     id="mutation",
-                                                     ref=ref_aa[
-                                                         ref_codon_pos],
-                                                     alt=aa,
-                                                     freq=frequency,
-                                                     coverage=coverage,
-                                                     census_ind=census_ind,
-                                                     pos=(ref_codon_pos - (
-                                                        gene['start'] // 3
-                                                     ) + 1),
-                                                     info={
-                                                         'WC': ref_codon_array[
-                                                             ref_codon_pos
-                                                         ].lower(),
-                                                         'MC': mc[:-1],
-                                                         'MCF': mcf[:-1],
-                                                         'CAT': ".",
-                                                         'SRVL': "."
-                                                     })
+                                mutation = Record(CHROM=chrom,
+                                                   GENE=gene_key,
+                                                   POS=(ref_codon_pos - (
+                                                      gene['start'] // 3
+                                                   ) + 1),
+                                                   REF=ref_aa[
+                                                       ref_codon_pos],
+                                                   ALT=aa,
+                                                   FILTER=".",
+                                                   ALT_FREQ=frequency,
+                                                   COVERAGE=coverage,
+                                                   INFO={
+                                                        'RC': ref_codon_array[
+                                                            ref_codon_pos
+                                                        ].lower(),
+                                                        'AC': mc[:-1],
+                                                        'ACF': mcf[:-1],
+                                                        'CAT': ".",
+                                                        'SRVL': "."
+                                                   })
 
                                 var_collect.variants[chrom][ref_codon_pos][
                                     confidence][aa] = mutation
 
         return var_collect
 
-    def to_hmcf_file(self, confidence):
-        """Build a string representation of our AAVariant objects
-        (i.e. a hmcf file)."""
+    def to_aavf(self, confidence):
+        """Build an AAVF representation of our Record objects
+        (i.e. an aavf file)."""
 
         # Init
         d = date.today()
 
         # Header
-        report = "##fileformat=HMCFv2\n"
-        report += "##fileDate=%s\n" % (d.strftime("%Y%m%d"))
-        report += "##source=quasitools\n"
-
+        metadata = {}
+        metadata["fileformat"] = "AAVFv1.0"
+        metadata["fileDate"] = d.strftime("%Y%m%d")
+        metadata["source"] = "quasitools"
+        metadata["reference"] = []
         # Could have many reference files (aa_census)
         for refs in self.references:
-            report += "##reference=%s\n" % (refs.ref_file)
+            metadata["reference"].append(refs.ref_file)
 
-        info_line = "##INFO=<ID=%s,Number=%s,Type=%s,Description=\"%s\">\n"
+        # Infos
+        infos = {}
 
-        report += info_line % ("WC", ".", "String", "WildType Codon")
-        report += info_line % ("MC", ".", "String", "Mutation Codon")
-        report += info_line % ("MCF", ".", "String", "Mutant Codon Frequency, "
-                               "for each Mutant Codon, in the same order as "
-                               "listed.")
-        report += info_line % ("CAT", ".", "String",
-                               "Drug Resistance Category")
-        report += info_line % ("SRVL", ".", "String",
-                               "Drug Resistance Surveillance")
+        infos["RC"] = Info("RC", ".", "String", "Reference Codon", None, None)
+        infos["AC"] = Info("AC", ".", "String", "Alternate Codon", None, None)
+        infos["ACF"] = Info("ACF", ".", "String", "Alternate Codon Frequency, "
+                             "for each Alternate Codon, in the same order as"
+                             " listed.", None, None)
+        infos["CAT"] = Info("CAT", ".", "String", "Drug Resistance Category",
+                             None, None)
+        infos["SRVL"] = Info("SRVL", ".", "String", "Drug Resistance"
+                              " Surveillance", None, None)
 
-        filter_line = "##FILTER=<ID=%s,Description=\"Set if %s; %s\">\n"
-
+        # Filters
+        filters = {}
+        desc_template = "Set if %s; %s"
         for id, filter in self.filters.items():
-            report += filter_line % (id, filter['result'],
-                                     filter['expression'])
+            filter_desc = desc_template % (filter['result'],
+                                           filter['expression'])
+            # add id to dict of filters with corresponding description
+            filters[id] = Filter(id, filter_desc)
 
-        report += "#CHROM\tGENE\tTYPE\tWILDTYPE\tPOS\t" \
-            "MUTANT\tFILTER\tMUTANT_FREQ\tCOVERAGE\tINFO\n"
+        # Column Headers
+        headers = ("CHROM", "GENE", "POS", "REF", "ALT", "FILTER", "ALT_FREQ",
+                   "COVERAGE", "INFO")
+
+        records = []
 
         # Body
         for chrom in self.variants:
@@ -215,10 +191,13 @@ class AAVariantCollection(VariantCollection):
                             ref_codon_pos][confidence][aa]
 
                         # Add this mutation to the report!
-                        report += mutation.to_hmcf_entry()
+                        records.append(mutation)
 
-        # Return string of report without nl char at the end
-        return report[:-1]
+        aavf_report = AAVF(metadata=metadata, infos=infos, filters=filters,
+                           column_headers=headers, records=records)
+
+        # Return AAVF object which we can pass to a Writer to print out report
+        return aavf_report
 
     def report_dr_mutations(self, mutation_db, reporting_threshold):
         """Builds a report of all drug resistant amino acid mutations present
@@ -254,19 +233,19 @@ class AAVariantCollection(VariantCollection):
                                         dr_mutation_pos][CONFIDENT] and
                                     self.variants[chrom][
                                         dr_mutation_pos][CONFIDENT]
-                                    [dr_mutation].filter == "PASS"):
+                                    [dr_mutation].FILTER == "PASS"):
 
                                 mutation_freq = (
                                     self.variants[chrom][
                                         dr_mutation_pos][
                                         CONFIDENT][
-                                        dr_mutation].freq
+                                        dr_mutation].ALT_FREQ
                                 ) * 100
 
                                 coverage = self.variants[chrom][
                                     dr_mutation_pos][
                                     CONFIDENT][
-                                    dr_mutation].coverage
+                                    dr_mutation].COVERAGE
 
                                 if mutation_freq > reporting_threshold:
                                     report += (
@@ -317,8 +296,8 @@ class AAVariantCollection(VariantCollection):
                             ref_codon_pos][confidence][aa]
 
                         # Update the mutation
-                        mutation.info['CAT'] = category
-                        mutation.info['SRVL'] = surveillance
+                        mutation.INFO['CAT'] = category
+                        mutation.INFO['SRVL'] = surveillance
 
     def filter(self, id, expression, result):
         """Apply filter to variants given an id, expression and result."""
@@ -337,20 +316,20 @@ class AAVariantCollection(VariantCollection):
                         variant = self.variants[chrom][
                             ref_codon_pos][confidence][aa]
 
-                        if hasattr(variant, attribute.lower()):
+                        if hasattr(variant, attribute.upper()):
                             attribute_value = eval(
-                                "variant.%s" % attribute.lower())
+                                "variant.%s" % attribute.upper())
                         else:
-                            attribute_value = variant.info[attribute.upper()]
+                            attribute_value = variant.INFO[attribute.upper()]
 
                         if eval("%s %s %s" % (
                             attribute_value, operator, value
                         )) != result:
-                            if variant.filter == '.':
-                                variant.filter = 'PASS'
+                            if variant.FILTER == '.':
+                                variant.FILTER = 'PASS'
                         else:
-                            if variant.filter == '.' or \
-                                    variant.filter == 'PASS':
-                                variant.filter = id
+                            if variant.FILTER == '.' or \
+                                    variant.FILTER == 'PASS':
+                                variant.FILTER = id
                             else:
-                                variant.filter += ";%s" % id
+                                variant.FILTER += ";%s" % id

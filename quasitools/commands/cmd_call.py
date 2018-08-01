@@ -17,6 +17,7 @@ specific language governing permissions and limitations under the License.
 """
 
 import click
+from PyAAVF.parser import Writer
 from quasitools.nt_variant import NTVariantCollection
 from quasitools.parsers.mapped_read_parser import parse_mapped_reads_from_bam
 from quasitools.parsers.reference_parser import parse_references_from_fasta
@@ -27,7 +28,10 @@ from quasitools.parsers.genes_file_parser import parse_genes_file
 from quasitools.parsers.nt_variant_file_parser \
     import parse_nt_variants_from_vcf
 from quasitools.codon_variant import CodonVariantCollection
-
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 @click.group(invoke_without_command=False)
 @click.pass_context
@@ -115,17 +119,29 @@ def aavar(bam, reference, variants, genes_file, min_freq,
     aa_vars = AAVariantCollection.from_aacensus(aa_census)
 
     # Filter for mutant frequency
-    aa_vars.filter('mf0.01', 'freq<0.01', True)
+    aa_vars.filter('af0.01', 'alt_freq<0.01', True)
 
     # Build the mutation database and update collection
     if mutation_db is not None:
         mutation_db = MutationDB(mutation_db, genes)
         aa_vars.apply_mutation_db(mutation_db)
 
+    template = aa_vars.to_aavf(CONFIDENT)
+    # Write to string using Writer object
+    strIO=StringIO()
+
+    writer = Writer(strIO, template)
+    for record in template:
+        # we specify that the ALT_FREQ field has four decimal places
+        writer.write_record(record, decimals=4)
+    aa_variants = strIO.getvalue()
+    # Returns string of report without nl character at the end
+    aa_variants = aa_variants[:-1]
+
     if output:
-        output.write(aa_vars.to_hmcf_file(CONFIDENT))
+        output.write(aa_variants)
     else:
-        click.echo(aa_vars.to_hmcf_file(CONFIDENT))
+        click.echo(aa_variants)
 
 
 @cli.command('codonvar', short_help='Identify the number of '
