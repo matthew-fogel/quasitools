@@ -33,6 +33,7 @@ try:
 except ImportError:
     from io import StringIO
 
+
 @click.group(invoke_without_command=False)
 @click.pass_context
 def cli(ctx):
@@ -128,7 +129,7 @@ def aavar(bam, reference, variants, genes_file, min_freq,
 
     template = aa_vars.to_aavf(CONFIDENT)
     # Write to string using Writer object
-    strIO=StringIO()
+    strIO = StringIO()
 
     writer = Writer(strIO, template)
     for record in template:

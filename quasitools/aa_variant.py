@@ -21,12 +21,13 @@ from datetime import date
 from collections import defaultdict
 from Bio.Seq import Seq
 from quasitools.aa_census import CONFIDENT, UNCONFIDENT
-from quasitools.variant import Variant, VariantCollection
+from quasitools.variant import VariantCollection
 from numpy import array as np_array
 from PyAAVF.model import AAVF
 from PyAAVF.model import Record
 from PyAAVF.parser import Info
 from PyAAVF.parser import Filter
+
 
 class AAVariantCollection(VariantCollection):
 
@@ -110,25 +111,25 @@ class AAVariantCollection(VariantCollection):
                                 # Create AAVF Record & slap it in the
                                 # collection
                                 mutation = Record(CHROM=chrom,
-                                                   GENE=gene_key,
-                                                   POS=(ref_codon_pos - (
-                                                      gene['start'] // 3
-                                                   ) + 1),
-                                                   REF=ref_aa[
-                                                       ref_codon_pos],
-                                                   ALT=aa,
-                                                   FILTER=".",
-                                                   ALT_FREQ=frequency,
-                                                   COVERAGE=coverage,
-                                                   INFO={
-                                                        'RC': ref_codon_array[
-                                                            ref_codon_pos
-                                                        ].lower(),
-                                                        'AC': mc[:-1],
-                                                        'ACF': mcf[:-1],
-                                                        'CAT': ".",
-                                                        'SRVL': "."
-                                                   })
+                                                  GENE=gene_key,
+                                                  POS=(ref_codon_pos - (
+                                                     gene['start'] // 3
+                                                  ) + 1),
+                                                  REF=ref_aa[
+                                                      ref_codon_pos],
+                                                  ALT=aa,
+                                                  FILTER=".",
+                                                  ALT_FREQ=frequency,
+                                                  COVERAGE=coverage,
+                                                  INFO={
+                                                       'RC': ref_codon_array[
+                                                           ref_codon_pos
+                                                       ].lower(),
+                                                       'AC': mc[:-1],
+                                                       'ACF': mcf[:-1],
+                                                       'CAT': ".",
+                                                       'SRVL': "."
+                                                  })
 
                                 var_collect.variants[chrom][ref_codon_pos][
                                     confidence][aa] = mutation
@@ -158,12 +159,12 @@ class AAVariantCollection(VariantCollection):
         infos["RC"] = Info("RC", ".", "String", "Reference Codon", None, None)
         infos["AC"] = Info("AC", ".", "String", "Alternate Codon", None, None)
         infos["ACF"] = Info("ACF", ".", "String", "Alternate Codon Frequency, "
-                             "for each Alternate Codon, in the same order as"
-                             " listed.", None, None)
+                            "for each Alternate Codon, in the same order as"
+                            " listed.", None, None)
         infos["CAT"] = Info("CAT", ".", "String", "Drug Resistance Category",
-                             None, None)
+                            None, None)
         infos["SRVL"] = Info("SRVL", ".", "String", "Drug Resistance"
-                              " Surveillance", None, None)
+                             " Surveillance", None, None)
 
         # Filters
         filters = {}
