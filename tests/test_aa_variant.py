@@ -129,6 +129,7 @@ class TestAAVariant:
         # Returns string of report without nl character at the end
         aa_variants = aa_variants[:-1]
         writer.close()
+        strIO.close()
         # Make sure it's sorted and has no empty strings
         aa_variants_lines = sorted(aa_variants.split("\n"))
 
@@ -186,7 +187,7 @@ class TestAAVariant:
         # Returns string of report without nl character at the end
         aa_variants = aa_variants[:-1]
         writer.close()
-
+        strIO.close()
         # Make sure it's sorted and has no empty strings
         aa_variants_lines = sorted(filter(None, aa_variants.split("\n")))
 

@@ -29,6 +29,7 @@ from quasitools.quality_control import LENGTH
 from quasitools.quality_control import SCORE
 from quasitools.quality_control import NS
 import Bio.SeqIO
+from PyAAVF.parser import Writer
 
 # GLOBALS
 
@@ -155,20 +156,24 @@ class PatientAnalyzer():
         if not self.quiet:
             print("# Finding amino acid mutations...")
 
-        # Create AAVar collection and print the hmcf file
+        # Create AAVar collection and print the aavf file
         aa_vars = AAVariantCollection.from_aacensus(aa_census)
 
         # Filter for mutant frequency
-        aa_vars.filter('mf%s' % variant_filters[MIN_FREQ],
-                       'freq<%s' % variant_filters[MIN_FREQ], True)
+        aa_vars.filter('af%s' % variant_filters[MIN_FREQ],
+                       'alt_freq<%s' % variant_filters[MIN_FREQ], True)
 
         # Build the mutation database and update collection
         if self.mutation_db is not None:
             mutation_db = MutationDB(self.mutation_db, self.genes)
             aa_vars.apply_mutation_db(mutation_db)
 
-        mut_report = open("%s/mutation_report.hmcf" % self.output_dir, "w+")
-        mut_report.write(aa_vars.to_hmcf_file(CONFIDENT))
+        mut_report = open("%s/mutation_report.aavf" % self.output_dir, "w+")
+        template = aa_vars.to_aavf(CONFIDENT)
+        writer = Writer(mut_report, template)
+        for record in template:
+            writer.write_record(record)
+        writer.close()
         mut_report.close()
 
         # cmd_drmutations

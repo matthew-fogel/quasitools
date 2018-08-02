@@ -137,7 +137,7 @@ def aavar(bam, reference, variants, genes_file, min_freq,
     aa_variants = strIO.getvalue()
     # Returns string of report without nl character at the end
     aa_variants = aa_variants[:-1]
-
+    strIO.close()
     if output:
         output.write(aa_variants)
     else:
